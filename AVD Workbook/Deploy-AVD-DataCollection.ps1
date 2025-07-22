@@ -120,8 +120,27 @@ try {
         Write-Host "`n📊 Deployment Results:" -ForegroundColor Cyan
         Write-Host "══════════════════════" -ForegroundColor Cyan        Write-Host "Log Analytics Workspace: $($deployment.Outputs.logAnalyticsWorkspaceName.Value)" -ForegroundColor White
         Write-Host "Workspace Resource ID: $($deployment.Outputs.logAnalyticsWorkspaceId.Value)" -ForegroundColor White
-        Write-Host "Data Collection Rule ID: $($deployment.Outputs.dataCollectionRuleId.Value)" -ForegroundColor White
-        Write-Host "Managed Identity ID: $($deployment.Outputs.managedIdentityId.Value)" -ForegroundColor White
+        Write-Host "Data Collection Rule ID: $($deployment.Outputs.dataCollectionRuleId.Value)" -ForegroundColor White        Write-Host "Managed Identity ID: $($deployment.Outputs.managedIdentityId.Value)" -ForegroundColor White
+        
+        # Configure role assignments for managed identity
+        Write-Host "`n🔐 Configuring role assignments for managed identity..." -ForegroundColor Yellow
+        try {
+            $managedIdentityPrincipalId = $deployment.Outputs.managedIdentityPrincipalId.Value
+            
+            # Check if Contributor role assignment already exists
+            $existingRole = Get-AzRoleAssignment -ObjectId $managedIdentityPrincipalId -RoleDefinitionName "Contributor" -Scope "/subscriptions/$SubscriptionId/resourcegroups/$ResourceGroupName" -ErrorAction SilentlyContinue
+            
+            if ($existingRole) {
+                Write-Host "✅ Contributor role assignment already exists for managed identity" -ForegroundColor Green
+            } else {
+                Write-Host "📋 Assigning Contributor role to managed identity..." -ForegroundColor Cyan
+                New-AzRoleAssignment -ObjectId $managedIdentityPrincipalId -RoleDefinitionName "Contributor" -Scope "/subscriptions/$SubscriptionId/resourcegroups/$ResourceGroupName" | Out-Null
+                Write-Host "✅ Contributor role assigned successfully" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "⚠️ Warning: Could not assign Contributor role to managed identity: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "💡 You may need to run the Grant-ManagedIdentityPermissions.ps1 script manually" -ForegroundColor Cyan
+        }
         
         # Check current AVD resources
         Write-Host "`n🔍 Scanning for AVD resources in subscription..." -ForegroundColor Yellow

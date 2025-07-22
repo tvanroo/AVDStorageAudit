@@ -10,12 +10,28 @@ This repository contains tools for comprehensive Azure Virtual Desktop (AVD) sto
 Click the "Deploy to Azure" button above to deploy the data collection infrastructure with a guided UI.
 
 ### Manual Deployment
+
+**Option 1: Simplified Deployment (Recommended)**
 ```powershell
 # Clone this repository
 git clone https://github.com/tvanroo/AVDStorageAudit.git
-cd AVDStorageAudit/AVD\ Workbook
+cd AVDStorageAudit
 
-# Deploy the analytics infrastructure
+# Test the deployment first
+.\test-infrastructure-deployment.ps1 -ResourceGroupName "rg-avd-analytics"
+
+# Deploy infrastructure only
+New-AzResourceGroupDeployment -ResourceGroupName "rg-avd-analytics" -TemplateFile ".\AVD Workbook\deploy-avd-infrastructure.json" -TemplateParameterFile ".\AVD Workbook\deploy-avd-infrastructure.parameters.json"
+
+# Configure permissions and diagnostics manually
+.\Grant-ManagedIdentityPermissions.ps1 -ResourceGroupName "rg-avd-analytics"
+.\Deploy-AVD-DataCollection.ps1 -ResourceGroupName "rg-avd-analytics" -WorkspaceName "AVDStorageAuditLAW"
+```
+
+**Option 2: Full Automated Deployment**
+```powershell
+# Deploy everything at once (may have PowerShell context issues in some environments)
+cd AVDStorageAudit/AVD\ Workbook
 .\Deploy-AVD-DataCollection.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
 
 # Optional: Validate your environment first (recommended)

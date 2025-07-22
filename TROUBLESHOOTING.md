@@ -2,6 +2,24 @@
 
 This document provides solutions to common deployment issues with the AVD Storage Analytics solution.
 
+## 🚀 Quick Fix: Use Simplified Infrastructure Template
+
+**RECOMMENDED APPROACH**: Use the simplified infrastructure template that avoids PowerShell deployment script issues:
+
+```powershell
+# Test the deployment first
+.\test-infrastructure-deployment.ps1 -ResourceGroupName "your-rg-name"
+
+# Deploy the infrastructure
+New-AzResourceGroupDeployment -ResourceGroupName "your-rg-name" -TemplateFile ".\AVD Workbook\deploy-avd-infrastructure.json" -TemplateParameterFile ".\AVD Workbook\deploy-avd-infrastructure.parameters.json"
+
+# Configure permissions and diagnostic settings manually
+.\Grant-ManagedIdentityPermissions.ps1 -ResourceGroupName "your-rg-name"
+.\Deploy-AVD-DataCollection.ps1 -ResourceGroupName "your-rg-name" -WorkspaceName "AVDStorageAuditLAW"
+```
+
+---
+
 ## Common Issues and Solutions
 
 ### 1. "CannotSetResourceIdentity" Error

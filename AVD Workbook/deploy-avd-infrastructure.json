@@ -1,0 +1,158 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Deploy infrastructure for AVD storage analytics - Log Analytics workspace and Data Collection Rule"
+  },
+  "parameters": {
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "AVDStorageAuditLAW",
+      "metadata": {
+        "description": "Name of the Log Analytics workspace for AVD storage data collection",
+        "strongType": "Microsoft.OperationalInsights/workspaces"
+      }
+    },
+    "dataRetentionDays": {
+      "type": "int",
+      "defaultValue": 90,
+      "minValue": 30,
+      "maxValue": 730,
+      "metadata": {
+        "description": "Number of days to retain log data"
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "dataCollectionRuleName": "[concat('dcr-avd-storage-', uniqueString(resourceGroup().id))]",
+    "dataCollectionEndpointName": "[concat('dce-avd-storage-', uniqueString(resourceGroup().id))]",
+    "managedIdentityName": "[concat('id-avd-storage-', uniqueString(resourceGroup().id))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('managedIdentityName')]",
+      "location": "[variables('location')]"
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": "[parameters('dataRetentionDays')]",
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/dataCollectionEndpoints",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('dataCollectionEndpointName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "description": "Data collection endpoint for AVD storage analytics",
+        "networkAcls": {
+          "publicNetworkAccess": "Enabled"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/dataCollectionRules",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('dataCollectionRuleName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+        "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dataCollectionEndpointName'))]"
+      ],
+      "properties": {
+        "description": "Data collection rule for AVD storage performance metrics",
+        "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dataCollectionEndpointName'))]",
+        "dataSources": {
+          "performanceCounters": [
+            {
+              "name": "VMPerfCounters",
+              "streams": [
+                "Microsoft-Perf"
+              ],
+              "scheduledTransferPeriod": "PT1M",
+              "samplingFrequencyInSeconds": 60,
+              "counterSpecifiers": [
+                "\\LogicalDisk(*)\\Disk Read Bytes/sec",
+                "\\LogicalDisk(*)\\Disk Write Bytes/sec",
+                "\\LogicalDisk(*)\\Disk Reads/sec",
+                "\\LogicalDisk(*)\\Disk Writes/sec",
+                "\\LogicalDisk(*)\\Current Disk Queue Length",
+                "\\LogicalDisk(*)\\Avg. Disk sec/Read",
+                "\\LogicalDisk(*)\\Avg. Disk sec/Write",
+                "\\LogicalDisk(*)\\Free Megabytes",
+                "\\LogicalDisk(*)\\% Free Space",
+                "\\Memory\\Available MBytes",
+                "\\Memory\\% Committed Bytes In Use",
+                "\\Processor(_Total)\\% Processor Time",
+                "\\System\\Processor Queue Length",
+                "\\Network Interface(*)\\Bytes Total/sec",
+                "\\Network Interface(*)\\Current Bandwidth",
+                "\\Terminal Services\\Active Sessions",
+                "\\Terminal Services\\Inactive Sessions",
+                "\\User Profile Service\\Profile loads",
+                "\\User Profile Service\\Profile unloads"
+              ]
+            }
+          ]
+        },
+        "destinations": {
+          "logAnalytics": [
+            {
+              "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+              "name": "AVDStorageWorkspace"
+            }
+          ]
+        },
+        "dataFlows": [
+          {
+            "streams": [
+              "Microsoft-Perf"
+            ],
+            "destinations": [
+              "AVDStorageWorkspace"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "value": "[parameters('logAnalyticsWorkspaceName')]"
+    },
+    "dataCollectionRuleId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dataCollectionRuleName'))]"
+    },
+    "dataCollectionEndpointId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dataCollectionEndpointName'))]"
+    },
+    "managedIdentityId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), '2023-01-31').principalId]"
+    }
+  }
+}
