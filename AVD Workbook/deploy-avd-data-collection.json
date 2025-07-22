@@ -2,9 +2,8 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "metadata": {
-    "description": "Deploy comprehensive data collection infrastructure for AVD storage analytics and ANF planning"
-  },
-  "parameters": {
+    "description": "Deploy infrastructure for AVD storage analytics - Log Analytics workspace and Data Collection Rule"
+  },  "parameters": {
     "logAnalyticsWorkspaceName": {
       "type": "string",
       "defaultValue": "AVDStorageAuditLAW",
@@ -26,43 +25,47 @@
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Enable diagnostic settings for all AVD Host Pools in subscription"
+        "description": "Enable diagnostic settings for all AVD Host Pools in subscription (configured manually after deployment)"
       }
     },
     "enableSessionHostDiagnostics": {
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Enable diagnostic settings and performance counters for AVD Session Hosts"
+        "description": "Enable diagnostic settings and performance counters for AVD Session Hosts (configured manually after deployment)"
       }
     },
     "enableStorageDiagnostics": {
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Enable diagnostic settings for Storage Accounts used by AVD"
+        "description": "Enable diagnostic settings for Storage Accounts used by AVD (configured manually after deployment)"
       }
     },
     "enableANFDiagnostics": {
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Enable diagnostic settings for Azure NetApp Files volumes"
+        "description": "Enable diagnostic settings for Azure NetApp Files volumes (configured manually after deployment)"
       }
     }
-  },  "variables": {
+  },
+  "variables": {
     "location": "[resourceGroup().location]",
-    "subscriptionId": "[subscription().subscriptionId]",
     "dataCollectionRuleName": "[concat('dcr-avd-storage-', uniqueString(resourceGroup().id))]",
     "dataCollectionEndpointName": "[concat('dce-avd-storage-', uniqueString(resourceGroup().id))]",
     "managedIdentityName": "[concat('id-avd-storage-', uniqueString(resourceGroup().id))]"
-  },"resources": [    {
+  },
+  "resources": [
+    {
       "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
       "apiVersion": "2023-01-31",
       "name": "[variables('managedIdentityName')]",
-      "location": "[variables('location')]"    },
+      "location": "[variables('location')]"
+    },
     {
-      "type": "Microsoft.OperationalInsights/workspaces","apiVersion": "2023-09-01",
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
       "name": "[parameters('logAnalyticsWorkspaceName')]",
       "location": "[variables('location')]",
       "properties": {
@@ -77,7 +80,8 @@
     },
     {
       "type": "Microsoft.Insights/dataCollectionEndpoints",
-      "apiVersion": "2022-06-01",      "name": "[variables('dataCollectionEndpointName')]",
+      "apiVersion": "2022-06-01",
+      "name": "[variables('dataCollectionEndpointName')]",
       "location": "[variables('location')]",
       "properties": {
         "description": "Data collection endpoint for AVD storage analytics",
@@ -85,7 +89,8 @@
           "publicNetworkAccess": "Enabled"
         }
       }
-    },    {
+    },
+    {
       "type": "Microsoft.Insights/dataCollectionRules",
       "apiVersion": "2022-06-01",
       "name": "[variables('dataCollectionRuleName')]",
@@ -149,31 +154,9 @@
           }
         ]
       }
-    },
-    {
-      "type": "Microsoft.Resources/deploymentScripts",      "apiVersion": "2023-08-01",
-      "name": "configureAVDDiagnostics",
-      "location": "[variables('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
-        "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dataCollectionRuleName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
-      ],
-      "kind": "AzurePowerShell",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]": {}
-        }
-      },
-      "properties": {
-        "azPowerShellVersion": "10.0",
-        "retentionInterval": "PT1H",
-        "timeout": "PT30M",
-        "arguments": "[concat('-SubscriptionId ', variables('subscriptionId'), ' -WorkspaceName ', parameters('logAnalyticsWorkspaceName'), ' -ResourceGroupName ', resourceGroup().name, ' -EnableHostPool $', string(parameters('enableHostPoolDiagnostics')), ' -EnableStorage $', string(parameters('enableStorageDiagnostics')), ' -EnableANF $', string(parameters('enableANFDiagnostics')), ' -DataCollectionRuleName ', variables('dataCollectionRuleName'))]",        "scriptContent": "param([string]$SubscriptionId,[string]$WorkspaceName,[string]$ResourceGroupName,[bool]$EnableHostPool,[bool]$EnableStorage,[bool]$EnableANF,[string]$DataCollectionRuleName); $ErrorActionPreference = 'Stop'; Import-Module Az.Accounts, Az.Monitor, Az.DesktopVirtualization, Az.Storage -Force; Write-Output 'Starting AVD diagnostic configuration...'; Write-Output \"Subscription: $SubscriptionId\"; Write-Output \"Workspace: $WorkspaceName\"; try { $context = Get-AzContext; if (-not $context -or $context.Subscription.Id -ne $SubscriptionId) { Write-Output 'Setting subscription context...'; Set-AzContext -SubscriptionId $SubscriptionId } } catch { Write-Output \"Warning: Could not set subscription context: $($_.Exception.Message)\" } $workspace = Get-AzOperationalInsightsWorkspace -ResourceGroupName $ResourceGroupName -Name $WorkspaceName; $workspaceResourceId = $workspace.ResourceId; Write-Output \"Workspace Resource ID: $workspaceResourceId\"; $dcrResourceId = \"/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Insights/dataCollectionRules/$DataCollectionRuleName\"; $results = @(); if ($EnableHostPool) { Write-Output 'Configuring AVD Host Pool diagnostics...'; try { $hostPools = Get-AzWvdHostPool -ErrorAction SilentlyContinue; if ($hostPools) { foreach ($hostPool in $hostPools) { Write-Output \"Processing Host Pool: $($hostPool.Name)\"; $diagnosticSettingName = \"avd-storage-analytics-$($hostPool.Name)\"; $logCategories = @(@{ Category = 'Checkpoint'; Enabled = $true }, @{ Category = 'Error'; Enabled = $true }, @{ Category = 'Management'; Enabled = $true }, @{ Category = 'Connection'; Enabled = $true }, @{ Category = 'HostRegistration'; Enabled = $true }, @{ Category = 'AgentHealthStatus'; Enabled = $true }, @{ Category = 'NetworkData'; Enabled = $true }, @{ Category = 'SessionHostManagement'; Enabled = $true }); try { New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $hostPool.Id -WorkspaceId $workspaceResourceId -Log $logCategories; $results += \"SUCCESS: Configured diagnostics for Host Pool $($hostPool.Name)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Host Pool $($hostPool.Name): $($_.Exception.Message)\" } } } else { $results += \"INFO: No AVD Host Pools found in subscription\" } } catch { $results += \"ERROR: Failed to process Host Pools: $($_.Exception.Message)\" } }; if ($EnableStorage) { Write-Output 'Configuring Storage Account diagnostics...'; try { $storageAccounts = Get-AzStorageAccount -ErrorAction SilentlyContinue; if ($storageAccounts) { $avdStorageAccounts = $storageAccounts | Where-Object { $_.StorageAccountName -match 'avd|profile|fslogix|vdi|wvd' -or $_.Tags.ContainsKey('AVD') -or $_.Tags.ContainsKey('FSLogix') }; if ($avdStorageAccounts) { foreach ($storageAccount in $avdStorageAccounts) { Write-Output \"Processing Storage Account: $($storageAccount.StorageAccountName)\"; $diagnosticSettingName = \"avd-storage-analytics-$($storageAccount.StorageAccountName)\"; try { $metricCategories = @(@{ Category = 'Transaction'; Enabled = $true }); New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $storageAccount.Id -WorkspaceId $workspaceResourceId -Metric $metricCategories; $results += \"SUCCESS: Configured diagnostics for Storage Account $($storageAccount.StorageAccountName)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Storage Account $($storageAccount.StorageAccountName): $($_.Exception.Message)\" } } } else { $results += \"INFO: No AVD-related Storage Accounts found (searched for names containing: avd, profile, fslogix, vdi, wvd or tags: AVD, FSLogix)\" } } else { $results += \"INFO: No Storage Accounts found in subscription\" } } catch { $results += \"ERROR: Failed to process Storage Accounts: $($_.Exception.Message)\" } }; if ($EnableANF) { $results += \"INFO: Azure NetApp Files configuration skipped (module not available in deployment environment)\" }; Write-Output ''; Write-Output '=== CONFIGURATION RESULTS ==='; $results | ForEach-Object { Write-Output $_ }; $DeploymentScriptOutputs = @{ 'workspaceResourceId' = $workspaceResourceId; 'dataCollectionRuleId' = $dcrResourceId; 'configurationResults' = $results -join '; ' }"
-      }
     }
-  ],  "outputs": {
+  ],
+  "outputs": {
     "logAnalyticsWorkspaceId": {
       "type": "string",
       "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"

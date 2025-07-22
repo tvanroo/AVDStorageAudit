@@ -2,18 +2,25 @@
 
 This document provides solutions to common deployment issues with the AVD Storage Analytics solution.
 
-## 🚀 Quick Fix: Use Simplified Infrastructure Template
+## 🚀 SOLUTION: PowerShell Deployment Script Context Error
 
-**RECOMMENDED APPROACH**: Use the simplified infrastructure template that avoids PowerShell deployment script issues:
+**ISSUE CONFIRMED**: The error you're experiencing is exactly what we identified - Azure deployment scripts run in a limited container environment where subscription context isn't properly available, even with managed identity authentication.
+
+**ROOT CAUSE**: 
+```
+System.ArgumentException: Please provide a valid tenant or a valid subscription.
+Microsoft.Rest.ValidationException: 'this.Client.SubscriptionId' cannot be null.
+```
+
+This occurs because Azure deployment scripts execute in a sandboxed container that has limited Azure PowerShell context management capabilities.
+
+**✅ IMMEDIATE SOLUTION**: The template has been updated to remove the problematic deployment script. Use this approach:
 
 ```powershell
-# Test the deployment first
-.\test-infrastructure-deployment.ps1 -ResourceGroupName "your-rg-name"
+# Use the infrastructure-only template (PowerShell deployment script removed)
+New-AzResourceGroupDeployment -ResourceGroupName "your-rg-name" -TemplateFile ".\AVD Workbook\deploy-avd-data-collection.json" -TemplateParameterFile ".\AVD Workbook\deploy-avd-data-collection.parameters.json"
 
-# Deploy the infrastructure
-New-AzResourceGroupDeployment -ResourceGroupName "your-rg-name" -TemplateFile ".\AVD Workbook\deploy-avd-infrastructure.json" -TemplateParameterFile ".\AVD Workbook\deploy-avd-infrastructure.parameters.json"
-
-# Configure permissions and diagnostic settings manually
+# Configure diagnostics manually after infrastructure deployment
 .\Grant-ManagedIdentityPermissions.ps1 -ResourceGroupName "your-rg-name"
 .\Deploy-AVD-DataCollection.ps1 -ResourceGroupName "your-rg-name" -WorkspaceName "AVDStorageAuditLAW"
 ```
