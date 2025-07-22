@@ -1,0 +1,387 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# AVD Storage Analytics & ANF Planning\n## Comprehensive analysis of AVD storage performance, user patterns, and Azure NetApp Files sizing recommendations\n\n### 📊 This workbook provides:\n- **Real-time Storage Performance Analysis** - IOPS, throughput, latency metrics\n- **User Session Patterns** - Peak usage times, concurrent users, session duration\n- **Profile Analytics** - FSLogix container sizes, growth trends, performance\n- **ANF Sizing Recommendations** - Performance tier suggestions based on actual usage\n- **Cost Optimization Insights** - Right-sizing recommendations and cost projections\n\n---"
+      },
+      "name": "Title"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "timeRange",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time Range",
+            "type": 4,
+            "description": "Select the time range for analysis",
+            "isRequired": true,
+            "value": {
+              "durationMs": 604800000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 3600000,
+                  "displayName": "Last 1 hour"
+                },
+                {
+                  "durationMs": 86400000,
+                  "displayName": "Last 24 hours"
+                },
+                {
+                  "durationMs": 604800000,
+                  "displayName": "Last 7 days"
+                },
+                {
+                  "durationMs": 2592000000,
+                  "displayName": "Last 30 days"
+                }
+              ]
+            }
+          },
+          {
+            "id": "workspace",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "label": "Log Analytics Workspace",
+            "type": 5,
+            "description": "Select the Log Analytics workspace containing AVD data",
+            "isRequired": true,
+            "query": "Resources\n| where type == 'microsoft.operationalinsights/workspaces'\n| project id, name, subscriptionId, resourceGroup\n| order by name asc",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "value": "value::1",
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.operationalinsights/workspaces": true
+              },
+              "additionalResourceOptions": [
+                "value::1"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::1"
+          },
+          {
+            "id": "hostPools",
+            "version": "KqlParameterItem/1.0",
+            "name": "HostPools",
+            "label": "Host Pools",
+            "type": 2,
+            "description": "Select specific host pools to analyze",
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "WVDConnections\n| where TimeGenerated {TimeRange}\n| distinct ResourceAlias\n| sort by ResourceAlias asc",
+            "value": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*"
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces"
+          }
+        ]
+      },
+      "name": "Parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 📈 Executive Summary Dashboard\n\nKey performance indicators and quick insights for storage planning decisions."
+      },
+      "name": "ExecutiveSummaryHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let timeRange = {TimeRange};\nlet hostPools = dynamic([{HostPools}]);\n// Storage Performance Overview\nPerf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName in (\"Disk Read Bytes/sec\", \"Disk Write Bytes/sec\", \"Current Disk Queue Length\", \"Avg. Disk sec/Read\", \"Avg. Disk sec/Write\")\n| where InstanceName != \"_Total\" and InstanceName !contains \"Harddisk\"\n| extend DiskLetter = extract(@\"([A-Z]):\", 1, InstanceName)\n| where DiskLetter in (\"C\", \"D\", \"O\", \"P\", \"S\", \"T\", \"U\", \"V\", \"W\", \"X\", \"Y\", \"Z\") // Common profile/data drives\n| summarize \n    AvgReadThroughputMBps = avg(iff(CounterName == \"Disk Read Bytes/sec\", CounterValue / 1048576, 0)),\n    AvgWriteThroughputMBps = avg(iff(CounterName == \"Disk Write Bytes/sec\", CounterValue / 1048576, 0)),\n    PeakReadThroughputMBps = max(iff(CounterName == \"Disk Read Bytes/sec\", CounterValue / 1048576, 0)),\n    PeakWriteThroughputMBps = max(iff(CounterName == \"Disk Write Bytes/sec\", CounterValue / 1048576, 0)),\n    AvgQueueDepth = avg(iff(CounterName == \"Current Disk Queue Length\", CounterValue, 0)),\n    AvgReadLatencyMs = avg(iff(CounterName == \"Avg. Disk sec/Read\", CounterValue * 1000, 0)),\n    AvgWriteLatencyMs = avg(iff(CounterName == \"Avg. Disk sec/Write\", CounterValue * 1000, 0))\n    by Computer, DiskLetter\n| extend \n    TotalThroughputMBps = AvgReadThroughputMBps + AvgWriteThroughputMBps,\n    PeakTotalThroughputMBps = PeakReadThroughputMBps + PeakWriteThroughputMBps,\n    AvgLatencyMs = (AvgReadLatencyMs + AvgWriteLatencyMs) / 2\n| summarize \n    TotalSessionHosts = dcount(Computer),\n    AvgThroughputMBps = round(avg(TotalThroughputMBps), 1),\n    PeakThroughputMBps = round(max(PeakTotalThroughputMBps), 1),\n    AvgLatencyMs = round(avg(AvgLatencyMs), 2),\n    MaxQueueDepth = round(max(AvgQueueDepth), 1)\n| extend \n    ANFPerformanceTier = case(\n        PeakThroughputMBps > 400, \"Ultra\",\n        PeakThroughputMBps > 160, \"Premium\", \n        \"Standard\"\n    ),\n    StorageRecommendation = case(\n        AvgLatencyMs > 20, \"Consider Premium/Ultra ANF for lower latency\",\n        PeakThroughputMBps > 100, \"Premium ANF recommended for throughput requirements\",\n        \"Standard ANF may be sufficient\"\n    )",
+        "size": 3,
+        "title": "🎯 Storage Performance Summary",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "TotalSessionHosts",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "blue"
+              }
+            },
+            {
+              "columnMatch": "AvgThroughputMBps",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "green"
+              },
+              "numberFormat": {
+                "unit": 0,
+                "options": {
+                  "style": "decimal",
+                  "maximumFractionDigits": 1
+                }
+              }
+            },
+            {
+              "columnMatch": "PeakThroughputMBps",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "orange"
+              },
+              "numberFormat": {
+                "unit": 0,
+                "options": {
+                  "style": "decimal",
+                  "maximumFractionDigits": 1
+                }
+              }
+            },
+            {
+              "columnMatch": "AvgLatencyMs",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "red",
+                "thresholds": [
+                  {
+                    "color": "green",
+                    "value": 0
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 10
+                  },
+                  {
+                    "color": "red",
+                    "value": 20
+                  }
+                ]
+              }
+            },
+            {
+              "columnMatch": "ANFPerformanceTier",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholds": [
+                  {
+                    "color": "green",
+                    "value": "Standard"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": "Premium"
+                  },
+                  {
+                    "color": "red",
+                    "value": "Ultra"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "name": "StoragePerformanceSummary"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 👥 User Session Analytics\n\nAnalyze user patterns, peak usage times, and session characteristics for capacity planning."
+      },
+      "name": "UserSessionHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "// User Session Patterns and Peak Usage Analysis\nlet timeRange = {TimeRange};\nPerf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName == \"Active Sessions\"\n| where ObjectName == \"Terminal Services\"\n| summarize \n    ActiveSessions = avg(CounterValue),\n    PeakSessions = max(CounterValue)\n    by Computer, bin(TimeGenerated, 1h)\n| summarize \n    TotalSessionHosts = dcount(Computer),\n    AvgConcurrentUsers = round(avg(ActiveSessions), 0),\n    PeakConcurrentUsers = round(max(PeakSessions), 0),\n    PeakHour = format_datetime(arg_max(TimeGenerated, PeakSessions), \"yyyy-MM-dd HH:mm\")\n    by bin(TimeGenerated, 1h)\n| extend \n    HourOfDay = datetime_part(\"hour\", TimeGenerated),\n    DayOfWeek = format_datetime(TimeGenerated, \"dddd\")\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "📊 Hourly User Session Patterns",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      },
+      "name": "UserSessionPatterns"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Peak Usage Hours Analysis\nPerf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName == \"Active Sessions\"\n| where ObjectName == \"Terminal Services\"\n| extend HourOfDay = datetime_part(\"hour\", TimeGenerated)\n| summarize \n    AvgSessions = avg(CounterValue),\n    PeakSessions = max(CounterValue)\n    by HourOfDay\n| order by HourOfDay asc\n| extend Hour = strcat(HourOfDay, \":00\")",
+              "size": 1,
+              "title": "🕐 Peak Usage Hours",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart"
+            },
+            "customWidth": "50",
+            "name": "PeakUsageHours"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// User Profile Performance Analysis\nPerf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName in (\"Profile loads\", \"Profile unloads\")\n| where ObjectName == \"User Profile Service\"\n| summarize \n    ProfileLoads = sum(iff(CounterName == \"Profile loads\", CounterValue, 0)),\n    ProfileUnloads = sum(iff(CounterName == \"Profile unloads\", CounterValue, 0))\n    by Computer, bin(TimeGenerated, 1h)\n| summarize \n    TotalLoads = sum(ProfileLoads),\n    TotalUnloads = sum(ProfileUnloads),\n    AvgLoadsPerHour = round(avg(ProfileLoads), 1),\n    PeakLoadsPerHour = max(ProfileLoads)\n    by bin(TimeGenerated, 1h)\n| extend ProfileTurnover = round(TotalLoads * 1.0 / nullif(TotalUnloads, 0), 2)\n| project TimeGenerated, TotalLoads, TotalUnloads, AvgLoadsPerHour, PeakLoadsPerHour",
+              "size": 1,
+              "title": "👤 Profile Load/Unload Activity",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "timechart"
+            },
+            "customWidth": "50",
+            "name": "ProfileActivity"
+          }
+        ]
+      },
+      "name": "UserAnalyticsGroup"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 💾 Storage Performance Deep Dive\n\nDetailed analysis of disk performance metrics to inform ANF sizing decisions."
+      },
+      "name": "StorageDeepDiveHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "// Storage Performance Analysis - IOPS and Throughput\nPerf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName in (\"Disk Reads/sec\", \"Disk Writes/sec\", \"Disk Read Bytes/sec\", \"Disk Write Bytes/sec\")\n| where InstanceName != \"_Total\" and InstanceName !contains \"Harddisk\"\n| extend DiskLetter = extract(@\"([A-Z]):\", 1, InstanceName)\n| where DiskLetter in (\"C\", \"D\", \"O\", \"P\", \"S\", \"T\", \"U\", \"V\", \"W\", \"X\", \"Y\", \"Z\")\n| summarize \n    ReadIOPS = avg(iff(CounterName == \"Disk Reads/sec\", CounterValue, 0)),\n    WriteIOPS = avg(iff(CounterName == \"Disk Writes/sec\", CounterValue, 0)),\n    ReadThroughputMBps = avg(iff(CounterName == \"Disk Read Bytes/sec\", CounterValue / 1048576, 0)),\n    WriteThroughputMBps = avg(iff(CounterName == \"Disk Write Bytes/sec\", CounterValue / 1048576, 0))\n    by Computer, DiskLetter, bin(TimeGenerated, 5m)\n| extend \n    TotalIOPS = ReadIOPS + WriteIOPS,\n    TotalThroughputMBps = ReadThroughputMBps + WriteThroughputMBps\n| summarize \n    AvgIOPS = avg(TotalIOPS),\n    PeakIOPS = max(TotalIOPS),\n    AvgThroughputMBps = avg(TotalThroughputMBps),\n    PeakThroughputMBps = max(TotalThroughputMBps)\n    by bin(TimeGenerated, 15m)\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "📈 IOPS and Throughput Trends",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart",
+        "chartSettings": {
+          "seriesLabelSettings": [
+            {
+              "seriesName": "AvgIOPS",
+              "label": "Average IOPS",
+              "color": "blue"
+            },
+            {
+              "seriesName": "PeakIOPS",
+              "label": "Peak IOPS",
+              "color": "red"
+            },
+            {
+              "seriesName": "AvgThroughputMBps",
+              "label": "Avg Throughput (MB/s)",
+              "color": "green"
+            },
+            {
+              "seriesName": "PeakThroughputMBps",
+              "label": "Peak Throughput (MB/s)",
+              "color": "orange"
+            }
+          ]
+        }
+      },
+      "name": "IOPSThroughputTrends"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## 🏗️ ANF Sizing Recommendations\n\nBased on observed performance patterns, here are Azure NetApp Files configuration recommendations."
+      },
+      "name": "ANFRecommendationsHeader"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "// ANF Sizing Recommendations based on performance data\nlet performanceData = Perf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName in (\"Disk Read Bytes/sec\", \"Disk Write Bytes/sec\", \"Current Disk Queue Length\", \"Avg. Disk sec/Read\", \"Avg. Disk sec/Write\")\n| where InstanceName != \"_Total\" and InstanceName !contains \"Harddisk\"\n| extend DiskLetter = extract(@\"([A-Z]):\", 1, InstanceName)\n| where DiskLetter in (\"C\", \"D\", \"O\", \"P\", \"S\", \"T\", \"U\", \"V\", \"W\", \"X\", \"Y\", \"Z\")\n| summarize \n    TotalThroughputMBps = avg(iff(CounterName == \"Disk Read Bytes/sec\", CounterValue / 1048576, 0)) + avg(iff(CounterName == \"Disk Write Bytes/sec\", CounterValue / 1048576, 0)),\n    PeakThroughputMBps = max(iff(CounterName == \"Disk Read Bytes/sec\", CounterValue / 1048576, 0)) + max(iff(CounterName == \"Disk Write Bytes/sec\", CounterValue / 1048576, 0)),\n    AvgLatencyMs = (avg(iff(CounterName == \"Avg. Disk sec/Read\", CounterValue * 1000, 0)) + avg(iff(CounterName == \"Avg. Disk sec/Write\", CounterValue * 1000, 0))) / 2\n    by Computer;\nlet sessionData = Perf\n| where TimeGenerated >= ago({TimeRange:grain})\n| where CounterName == \"Active Sessions\"\n| where ObjectName == \"Terminal Services\"\n| summarize PeakSessions = max(CounterValue) by Computer;\nperformanceData\n| join kind=leftouter sessionData on Computer\n| summarize \n    TotalHosts = dcount(Computer),\n    AvgThroughputMBps = round(avg(TotalThroughputMBps), 1),\n    PeakThroughputMBps = round(max(PeakThroughputMBps), 1),\n    AvgLatencyMs = round(avg(AvgLatencyMs), 2),\n    TotalPeakSessions = sum(PeakSessions)\n| extend \n    RecommendedTier = case(\n        PeakThroughputMBps > 400 or AvgLatencyMs > 20, \"Ultra\",\n        PeakThroughputMBps > 160 or AvgLatencyMs > 10, \"Premium\",\n        \"Standard\"\n    ),\n    RecommendedSizeGB = case(\n        TotalPeakSessions <= 50, 4096,\n        TotalPeakSessions <= 100, 8192,\n        TotalPeakSessions <= 200, 16384,\n        32768\n    ),\n    EstimatedMonthlyCostUSD = case(\n        RecommendedTier == \"Ultra\", RecommendedSizeGB * 0.000688 * 24 * 30,\n        RecommendedTier == \"Premium\", RecommendedSizeGB * 0.000403 * 24 * 30,\n        RecommendedSizeGB * 0.000202 * 24 * 30\n    )\n| project \n    RecommendedTier,\n    RecommendedSizeGB,\n    EstimatedMonthlyCostUSD = round(EstimatedMonthlyCostUSD, 2),\n    PeakThroughputMBps,\n    AvgLatencyMs,\n    TotalPeakSessions,\n    JustificationSummary = case(\n        RecommendedTier == \"Ultra\", \"High throughput or latency requirements detected\",\n        RecommendedTier == \"Premium\", \"Moderate performance requirements\",\n        \"Standard performance sufficient for current workload\"\n    )",
+        "size": 0,
+        "title": "💰 ANF Sizing & Cost Recommendations",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "RecommendedTier",
+              "formatter": 18,
+              "formatOptions": {
+                "thresholds": [
+                  {
+                    "color": "green",
+                    "value": "Standard"
+                  },
+                  {
+                    "color": "yellow",
+                    "value": "Premium"
+                  },
+                  {
+                    "color": "red",
+                    "value": "Ultra"
+                  }
+                ]
+              }
+            },
+            {
+              "columnMatch": "EstimatedMonthlyCostUSD",
+              "formatter": 0,
+              "formatOptions": {
+                "customColumnWidthSetting": "20ch"
+              },
+              "numberFormat": {
+                "unit": 0,
+                "options": {
+                  "style": "currency",
+                  "currency": "USD"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "name": "ANFRecommendations"
+    }
+  ],
+  "fallbackResourceIds": [],
+  "fromTemplateId": "community-Workbooks/Azure Virtual Desktop/AVD Storage Analytics",
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
