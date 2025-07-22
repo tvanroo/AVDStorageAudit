@@ -3,20 +3,57 @@
   "contentVersion": "1.0.0.0",
   "metadata": {
     "description": "Deploy comprehensive data collection infrastructure for AVD storage analytics and ANF planning"
-  },
-  "parameters": {
+  },  "parameters": {
     "logAnalyticsWorkspaceName": {
       "type": "string",
       "defaultValue": "[concat('law-avd-storage-', uniqueString(resourceGroup().id))]",
       "metadata": {
-        "description": "Name of the Log Analytics workspace for AVD storage data collection"
+        "description": "Name of the Log Analytics workspace for AVD storage data collection",
+        "strongType": "Microsoft.OperationalInsights/workspaces"
       }
     },
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
+      "allowedValues": [
+        "australiacentral",
+        "australiaeast",
+        "australiasoutheast",
+        "brazilsouth",
+        "canadacentral",
+        "canadaeast",
+        "centralindia",
+        "centralus",
+        "eastasia",
+        "eastus",
+        "eastus2",
+        "francecentral",
+        "germanywestcentral",
+        "japaneast",
+        "japanwest",
+        "koreacentral",
+        "koreasouth",
+        "northcentralus",
+        "northeurope",
+        "norwayeast",
+        "southafricanorth",
+        "southcentralus",
+        "southeastasia",
+        "southindia",
+        "switzerlandnorth",
+        "uaenorth",
+        "uksouth",
+        "ukwest",
+        "westcentralus",
+        "westeurope",
+        "westindia",
+        "westus",
+        "westus2",
+        "westus3"
+      ],
       "metadata": {
-        "description": "Location for all resources"
+        "description": "Location for all resources",
+        "strongType": "location"
       }
     },
     "dataRetentionDays": {
@@ -55,12 +92,12 @@
       "metadata": {
         "description": "Enable diagnostic settings for Azure NetApp Files volumes"
       }
-    },
-    "subscriptionId": {
+    },    "subscriptionId": {
       "type": "string",
       "defaultValue": "[subscription().subscriptionId]",
       "metadata": {
-        "description": "Subscription ID for resource discovery"
+        "description": "Subscription ID for resource discovery",
+        "strongType": "Microsoft.Resources/subscriptions"
       }
     }
   },
