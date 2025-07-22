@@ -2,32 +2,36 @@
 # This script deploys the necessary Log Analytics workspace and diagnostic settings
 # for comprehensive AVD storage analysis and ANF planning
 
+[CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $true, HelpMessage = "Azure subscription ID where resources will be deployed")]
+    [ValidateNotNullOrEmpty()]
     [string]$SubscriptionId,
     
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $true, HelpMessage = "Name of the resource group where resources will be deployed")]
+    [ValidateNotNullOrEmpty()]
     [string]$ResourceGroupName,
     
-    [Parameter(Mandatory = $false)]
-    [string]$WorkspaceName = "law-avd-storage-analytics",
+    [Parameter(Mandatory = $false, HelpMessage = "Name of the Log Analytics workspace (will be made unique)")]
+    [string]$WorkspaceName = "",
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "Number of days to retain log data (30-730)")]
+    [ValidateRange(30, 730)]
     [int]$DataRetentionDays = 90,
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "Enable diagnostic settings for AVD Host Pools")]
     [bool]$EnableHostPoolDiagnostics = $true,
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "Enable diagnostic settings and performance counters for AVD Session Hosts")]
     [bool]$EnableSessionHostDiagnostics = $true,
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "Enable diagnostic settings for Storage Accounts")]
     [bool]$EnableStorageDiagnostics = $true,
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "Enable diagnostic settings for Azure NetApp Files")]
     [bool]$EnableANFDiagnostics = $true,
     
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = "URI to the ARM template")]
     [string]$TemplateUri = "https://raw.githubusercontent.com/tvanroo/AVDStorageAudit/main/AVD%20Workbook/deploy-avd-data-collection.json"
 )
 
@@ -83,15 +87,20 @@ catch {
 # Deploy the ARM template
 try {
     Write-Host "📋 Deploying data collection infrastructure..." -ForegroundColor Yellow
+      $deploymentName = "avd-storage-analytics-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     
-    $deploymentName = "avd-storage-analytics-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-      $templateParameters = @{
-        logAnalyticsWorkspaceName = $WorkspaceName
+    # Build template parameters
+    $templateParameters = @{
         dataRetentionDays = $DataRetentionDays
         enableHostPoolDiagnostics = $EnableHostPoolDiagnostics
         enableSessionHostDiagnostics = $EnableSessionHostDiagnostics
         enableStorageDiagnostics = $EnableStorageDiagnostics
         enableANFDiagnostics = $EnableANFDiagnostics
+    }
+    
+    # Only add workspace name if specified (let template use default with unique suffix)
+    if ($WorkspaceName -and $WorkspaceName.Trim() -ne "") {
+        $templateParameters.logAnalyticsWorkspaceName = $WorkspaceName.Trim()
     }
     
     # Check if template file exists locally, otherwise use URI
@@ -109,10 +118,10 @@ try {
         
         # Display outputs
         Write-Host "`n📊 Deployment Results:" -ForegroundColor Cyan
-        Write-Host "══════════════════════" -ForegroundColor Cyan
-        Write-Host "Log Analytics Workspace: $($deployment.Outputs.logAnalyticsWorkspaceName.Value)" -ForegroundColor White
+        Write-Host "══════════════════════" -ForegroundColor Cyan        Write-Host "Log Analytics Workspace: $($deployment.Outputs.logAnalyticsWorkspaceName.Value)" -ForegroundColor White
         Write-Host "Workspace Resource ID: $($deployment.Outputs.logAnalyticsWorkspaceId.Value)" -ForegroundColor White
         Write-Host "Data Collection Rule ID: $($deployment.Outputs.dataCollectionRuleId.Value)" -ForegroundColor White
+        Write-Host "Managed Identity ID: $($deployment.Outputs.managedIdentityId.Value)" -ForegroundColor White
         
         # Check current AVD resources
         Write-Host "`n🔍 Scanning for AVD resources in subscription..." -ForegroundColor Yellow

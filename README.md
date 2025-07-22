@@ -17,6 +17,9 @@ cd AVDStorageAudit/AVD\ Workbook
 
 # Deploy the analytics infrastructure
 .\Deploy-AVD-DataCollection.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
+
+# Optional: Validate your environment first (recommended)
+.\Validate-Deployment.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics" -WhatIf
 ```
 
 ## 📁 Repository Structure
@@ -102,5 +105,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For questions or issues:
 1. Check the [detailed documentation](AVD%20Workbook/README.md)
-2. Review [troubleshooting section](AVD%20Workbook/README.md#support--troubleshooting)  
-3. Open an issue in this repository
+2. Review the [Troubleshooting Guide](TROUBLESHOOTING.md) for common deployment issues
+3. Use the validation script: `.\Validate-Deployment.ps1`
+4. Open an issue in this repository
