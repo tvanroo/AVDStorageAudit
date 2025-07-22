@@ -24,16 +24,16 @@ jobs:
       with:
         subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         resourceGroupName: rg-template-validation
-        template: ./deploy-avd-data-collection.json
-        parameters: ./deploy-avd-data-collection.parameters.json
+        template: "./AVD Workbook/deploy-avd-data-collection.json"
+        parameters: "./AVD Workbook/deploy-avd-data-collection.parameters.json"
         deploymentMode: Validate
         
     - name: Test ARM Template Syntax
       run: |
         az deployment group validate \
           --resource-group rg-template-validation \
-          --template-file deploy-avd-data-collection.json \
-          --parameters deploy-avd-data-collection.parameters.json
+          --template-file "AVD Workbook/deploy-avd-data-collection.json" \
+          --parameters "AVD Workbook/deploy-avd-data-collection.parameters.json"
           
     - name: Run Template Analysis
       run: |
@@ -42,5 +42,5 @@ jobs:
         
         # Run ARM TTK tests
         Import-Module arm-ttk
-        Test-AzTemplate -TemplatePath ./deploy-avd-data-collection.json
+        Test-AzTemplate -TemplatePath "./AVD Workbook/deploy-avd-data-collection.json"
       shell: pwsh

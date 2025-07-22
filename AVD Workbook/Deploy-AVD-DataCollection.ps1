@@ -31,7 +31,7 @@ param(
     [bool]$EnableANFDiagnostics = $true,
     
     [Parameter(Mandatory = $false)]
-    [string]$TemplateUri = "https://raw.githubusercontent.com/YOUR-USERNAME/avd-storage-analytics/main/deploy-avd-data-collection.json"
+    [string]$TemplateUri = "https://raw.githubusercontent.com/tvanroo/AVDStorageAudit/main/AVD%20Workbook/deploy-avd-data-collection.json"
 )
 
 $ErrorActionPreference = 'Stop'

@@ -1,6 +1,6 @@
 # AVD Storage Analytics for ANF Planning
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-USERNAME%2Favd-storage-analytics%2Fmain%2Fdeploy-avd-data-collection.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Ftvanroo%2FAVDStorageAudit%2Fmain%2FAVD%2520Workbook%2Fdeploy-avd-data-collection.json)
 
 This solution provides comprehensive data collection and analytics for Azure Virtual Desktop (AVD) environments to help architects design optimal Azure NetApp Files (ANF) storage solutions.
 
@@ -82,8 +82,8 @@ Click the "Deploy to Azure" button above to deploy the data collection infrastru
 
 ```powershell
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/avd-storage-analytics.git
-cd avd-storage-analytics
+git clone https://github.com/tvanroo/AVDStorageAudit.git
+cd AVDStorageAudit/AVD\ Workbook
 
 # Run the deployment script
 .\Deploy-AVD-DataCollection.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics" -Location "East US"
