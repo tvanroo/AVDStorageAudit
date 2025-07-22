@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logAnalyticsWorkspaceName": {
+      "value": "law-avd-storage-analytics"
+    },
+    "dataRetentionDays": {
+      "value": 90
+    },
+    "enableHostPoolDiagnostics": {
+      "value": true
+    },
+    "enableSessionHostDiagnostics": {
+      "value": true
+    },
+    "enableStorageDiagnostics": {
+      "value": true
+    },
+    "enableANFDiagnostics": {
+      "value": true
+    }
+  }
+}

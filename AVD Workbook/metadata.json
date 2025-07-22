@@ -1,0 +1,20 @@
+{
+  "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+  "type": "QuickStart",
+  "itemDisplayName": "AVD Storage Analytics for ANF Planning",
+  "description": "Deploy comprehensive data collection infrastructure for Azure Virtual Desktop (AVD) storage analytics and Azure NetApp Files (ANF) planning. Includes Log Analytics workspace, diagnostic settings, and performance monitoring for user profiles, session data, and storage performance.",
+  "summary": "Comprehensive AVD storage analytics solution for ANF planning with automated data collection, performance monitoring, and storage optimization insights.",
+  "githubUsername": "YOUR-USERNAME",
+  "dateUpdated": "2025-01-22",
+  "environments": [
+    "AzureCloud"
+  ],
+  "validationType": "Manual",
+  "tags": {
+    "subscriptiontype": "Azure4Student,Free,MSDN,Paid",
+    "cost": "$",
+    "roles": "Contributor,Owner",
+    "level": "Intermediate",
+    "azure": "VirtualDesktop,Storage,Monitor,NetAppFiles,LogAnalytics"
+  }
+}
