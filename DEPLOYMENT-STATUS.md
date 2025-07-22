@@ -15,19 +15,22 @@
 - [x] **IMPROVED: Parameter optimization** - Removed redundant location and subscriptionId parameters
 - [x] **ENHANCED: UI controls** - Added strongType metadata for Log Analytics workspace picker
 - [x] **RESOLVED: Managed Identity issues** - Updated to use User-Assigned managed identity with proper role assignments
-- [x] **ADDED: Additional permissions** - Added Monitoring Contributor role for deployment script
+- [x] **FIXED: Role assignment scope error** - Removed invalid MonitoringContributor dependency
+- [x] **UPDATED: Workspace naming** - Changed to `AVDStorageAuditLAW` with unique suffix
 
 ### PowerShell Scripts Enhancement
 - [x] Updated deployment script with better parameter validation
 - [x] Enhanced error handling and user experience
 - [x] Added support for default workspace naming
 - [x] **NEW: Created validation script** (`Validate-Deployment.ps1`) for pre-deployment checks
+- [x] **NEW: Created permission script** (`Grant-ManagedIdentityPermissions.ps1`) for post-deployment permissions
 
 ### Documentation & Support
 - [x] **NEW: Comprehensive troubleshooting guide** (`TROUBLESHOOTING.md`)
 - [x] Updated README with validation script references
 - [x] Added deployment validation instructions
 - [x] Created detailed error resolution guides
+- [x] **UPDATED: Role assignment scope error solution** - Added specific troubleshooting for the deployment error
 
 ## 🔧 KEY IMPROVEMENTS MADE
 

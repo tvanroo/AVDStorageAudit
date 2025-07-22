@@ -4,10 +4,9 @@
   "metadata": {
     "description": "Minimal deployment test for AVD storage analytics infrastructure"
   },
-  "parameters": {
-    "logAnalyticsWorkspaceName": {
+  "parameters": {    "logAnalyticsWorkspaceName": {
       "type": "string",
-      "defaultValue": "[concat('law-avd-storage-test-', uniqueString(resourceGroup().id))]",
+      "defaultValue": "[concat('AVDStorageAuditLAWTest', uniqueString(resourceGroup().id))]",
       "metadata": {
         "description": "Name of the Log Analytics workspace for AVD storage data collection"
       }

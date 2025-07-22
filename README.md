@@ -20,6 +20,9 @@ cd AVDStorageAudit/AVD\ Workbook
 
 # Optional: Validate your environment first (recommended)
 .\Validate-Deployment.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics" -WhatIf
+
+# Grant additional permissions for comprehensive monitoring (if needed)
+.\Grant-ManagedIdentityPermissions.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
 ```
 
 ## 📁 Repository Structure

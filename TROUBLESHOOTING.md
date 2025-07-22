@@ -17,7 +17,20 @@ This document provides solutions to common deployment issues with the AVD Storag
 2. Verify the managed identity is correctly configured in the ARM template
 3. Use the validation script first: `.\Validate-Deployment.ps1 -SubscriptionId <id> -ResourceGroupName <name> -WhatIf`
 
-### 2. "Insufficient Permissions" Error
+### 2. "InvalidCreateRoleAssignmentRequest" Error
+
+**Symptom:** Deployment fails with error about role assignment scope mismatch.
+
+**Cause:** The ARM template deployment is scoped to a resource group, but some role assignments require subscription-level scope.
+
+**Solution:**
+1. Ensure you have `User Access Administrator` or `Owner` role on the subscription
+2. After successful deployment, run the permission script:
+   ```powershell
+   .\Grant-ManagedIdentityPermissions.ps1 -SubscriptionId <id> -ResourceGroupName <name>
+   ```
+
+### 3. "Insufficient Permissions" Error
 
 **Symptom:** Deployment fails with permission-related errors.
 
