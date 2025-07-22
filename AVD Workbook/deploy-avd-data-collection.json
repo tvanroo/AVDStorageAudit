@@ -3,9 +3,11 @@
   "contentVersion": "1.0.0.0",
   "metadata": {
     "description": "Deploy comprehensive data collection infrastructure for AVD storage analytics and ANF planning"
-  },  "parameters": {    "logAnalyticsWorkspaceName": {
+  },
+  "parameters": {
+    "logAnalyticsWorkspaceName": {
       "type": "string",
-      "defaultValue": "[concat('AVDStorageAuditLAW', uniqueString(resourceGroup().id))]",
+      "defaultValue": "AVDStorageAuditLAW",
       "metadata": {
         "description": "Name of the Log Analytics workspace for AVD storage data collection",
         "strongType": "Microsoft.OperationalInsights/workspaces"
@@ -62,7 +64,7 @@
     },    {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "name": "[guid(resourceGroup().id, variables('managedIdentityName'), 'Contributor')]",
+      "name": "[guid(concat(resourceGroup().id, variables('managedIdentityName'), 'Contributor', deployment().name))]",
       "dependsOn": [
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]"
       ],
@@ -194,7 +196,7 @@
         "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
         "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dataCollectionRuleName'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
-        "[guid(resourceGroup().id, variables('managedIdentityName'), 'Contributor')]"
+        "[guid(concat(resourceGroup().id, variables('managedIdentityName'), 'Contributor', deployment().name))]"
       ],"kind": "AzurePowerShell",      "identity": {
         "type": "UserAssigned",
         "userAssignedIdentities": {

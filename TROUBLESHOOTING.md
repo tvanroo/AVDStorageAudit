@@ -30,7 +30,25 @@ This document provides solutions to common deployment issues with the AVD Storag
    .\Grant-ManagedIdentityPermissions.ps1 -SubscriptionId <id> -ResourceGroupName <name>
    ```
 
-### 3. "Insufficient Permissions" Error
+### 3. "RoleAssignmentUpdateNotPermitted" Error
+
+**Symptom:** Deployment fails with error "Tenant ID, application ID, principal ID, and scope are not allowed to be updated."
+
+**Cause:** This occurs when trying to create a role assignment that conflicts with an existing one, often from a previous deployment attempt.
+
+**Solution:**
+1. **Clean up conflicting role assignments**:
+   ```powershell
+   .\Clean-RoleAssignments.ps1 -SubscriptionId <id> -ResourceGroupName <name>
+   ```
+
+2. **Wait 2-3 minutes** after cleanup for Azure to propagate the changes
+
+3. **Retry the deployment**
+
+4. **Alternative manual cleanup**: In Azure portal, go to Resource Group > Access control (IAM) > Role assignments, and remove any existing assignments for the AVD storage managed identity
+
+### 4. "Insufficient Permissions" Error
 
 **Symptom:** Deployment fails with permission-related errors.
 

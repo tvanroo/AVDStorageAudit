@@ -23,6 +23,9 @@ cd AVDStorageAudit/AVD\ Workbook
 
 # Grant additional permissions for comprehensive monitoring (if needed)
 .\Grant-ManagedIdentityPermissions.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
+
+# If you encounter role assignment conflicts, clean them up first:
+.\Clean-RoleAssignments.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
 ```
 
 ## 📁 Repository Structure
