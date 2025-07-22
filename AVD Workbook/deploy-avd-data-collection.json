@@ -12,50 +12,6 @@
         "strongType": "Microsoft.OperationalInsights/workspaces"
       }
     },
-    "location": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().location]",
-      "allowedValues": [
-        "australiacentral",
-        "australiaeast",
-        "australiasoutheast",
-        "brazilsouth",
-        "canadacentral",
-        "canadaeast",
-        "centralindia",
-        "centralus",
-        "eastasia",
-        "eastus",
-        "eastus2",
-        "francecentral",
-        "germanywestcentral",
-        "japaneast",
-        "japanwest",
-        "koreacentral",
-        "koreasouth",
-        "northcentralus",
-        "northeurope",
-        "norwayeast",
-        "southafricanorth",
-        "southcentralus",
-        "southeastasia",
-        "southindia",
-        "switzerlandnorth",
-        "uaenorth",
-        "uksouth",
-        "ukwest",
-        "westcentralus",
-        "westeurope",
-        "westindia",
-        "westus",
-        "westus2",
-        "westus3"
-      ],
-      "metadata": {
-        "description": "Location for all resources",
-        "strongType": "location"
-      }
-    },
     "dataRetentionDays": {
       "type": "int",
       "defaultValue": 90,
@@ -92,25 +48,19 @@
       "metadata": {
         "description": "Enable diagnostic settings for Azure NetApp Files volumes"
       }
-    },    "subscriptionId": {
-      "type": "string",
-      "defaultValue": "[subscription().subscriptionId]",
-      "metadata": {
-        "description": "Subscription ID for resource discovery",
-        "strongType": "Microsoft.Resources/subscriptions"
-      }
     }
   },
   "variables": {
+    "location": "[resourceGroup().location]",
+    "subscriptionId": "[subscription().subscriptionId]",
     "dataCollectionRuleName": "[concat('dcr-avd-storage-', uniqueString(resourceGroup().id))]",
     "dataCollectionEndpointName": "[concat('dce-avd-storage-', uniqueString(resourceGroup().id))]"
   },
   "resources": [
     {
-      "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2023-09-01",
+      "type": "Microsoft.OperationalInsights/workspaces",      "apiVersion": "2023-09-01",
       "name": "[parameters('logAnalyticsWorkspaceName')]",
-      "location": "[parameters('location')]",
+      "location": "[variables('location')]",
       "properties": {
         "sku": {
           "name": "PerGB2018"
@@ -123,9 +73,8 @@
     },
     {
       "type": "Microsoft.Insights/dataCollectionEndpoints",
-      "apiVersion": "2022-06-01",
-      "name": "[variables('dataCollectionEndpointName')]",
-      "location": "[parameters('location')]",
+      "apiVersion": "2022-06-01",      "name": "[variables('dataCollectionEndpointName')]",
+      "location": "[variables('location')]",
       "properties": {
         "description": "Data collection endpoint for AVD storage analytics",
         "networkAcls": {
@@ -134,10 +83,9 @@
       }
     },
     {
-      "type": "Microsoft.Insights/dataCollectionRules",
-      "apiVersion": "2022-06-01",
+      "type": "Microsoft.Insights/dataCollectionRules",      "apiVersion": "2022-06-01",
       "name": "[variables('dataCollectionRuleName')]",
-      "location": "[parameters('location')]",
+      "location": "[variables('location')]",
       "dependsOn": [
         "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
         "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dataCollectionEndpointName'))]"
@@ -225,9 +173,8 @@
     },
     {
       "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2023-08-01",
-      "name": "configureAVDDiagnostics",
-      "location": "[parameters('location')]",
+      "apiVersion": "2023-08-01",      "name": "configureAVDDiagnostics",
+      "location": "[variables('location')]",
       "dependsOn": [
         "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
         "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dataCollectionRuleName'))]"
@@ -240,7 +187,7 @@
         "azPowerShellVersion": "10.0",
         "retentionInterval": "PT1H",
         "timeout": "PT30M",
-        "arguments": "[concat('-SubscriptionId ', parameters('subscriptionId'), ' -WorkspaceName ', parameters('logAnalyticsWorkspaceName'), ' -ResourceGroupName ', resourceGroup().name, ' -EnableHostPool ', parameters('enableHostPoolDiagnostics'), ' -EnableStorage ', parameters('enableStorageDiagnostics'), ' -EnableANF ', parameters('enableANFDiagnostics'), ' -DataCollectionRuleName ', variables('dataCollectionRuleName'))]",        "scriptContent": "param([string]$SubscriptionId,[string]$WorkspaceName,[string]$ResourceGroupName,[bool]$EnableHostPool,[bool]$EnableStorage,[bool]$EnableANF,[string]$DataCollectionRuleName); $ErrorActionPreference = 'Stop'; Import-Module Az.Accounts, Az.Monitor, Az.DesktopVirtualization, Az.Storage, Az.NetAppFiles -Force; Write-Output 'Starting AVD diagnostic configuration...'; Write-Output \"Subscription: $SubscriptionId\"; Write-Output \"Workspace: $WorkspaceName\"; Set-AzContext -SubscriptionId $SubscriptionId; $workspace = Get-AzOperationalInsightsWorkspace -ResourceGroupName $ResourceGroupName -Name $WorkspaceName; $workspaceResourceId = $workspace.ResourceId; Write-Output \"Workspace Resource ID: $workspaceResourceId\"; $dcrResourceId = \"/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Insights/dataCollectionRules/$DataCollectionRuleName\"; $results = @(); if ($EnableHostPool) { Write-Output 'Configuring AVD Host Pool diagnostics...'; try { $hostPools = Get-AzWvdHostPool; foreach ($hostPool in $hostPools) { Write-Output \"Processing Host Pool: $($hostPool.Name)\"; $diagnosticSettingName = \"avd-storage-analytics-$($hostPool.Name)\"; $logCategories = @(@{ Category = 'Checkpoint'; Enabled = $true }, @{ Category = 'Error'; Enabled = $true }, @{ Category = 'Management'; Enabled = $true }, @{ Category = 'Connection'; Enabled = $true }, @{ Category = 'HostRegistration'; Enabled = $true }, @{ Category = 'AgentHealthStatus'; Enabled = $true }, @{ Category = 'NetworkData'; Enabled = $true }, @{ Category = 'SessionHostManagement'; Enabled = $true }); $diagnosticSetting = @{ Name = $diagnosticSettingName; ResourceId = $hostPool.Id; WorkspaceId = $workspaceResourceId; Log = $logCategories; Enabled = $true }; try { New-AzDiagnosticSetting @diagnosticSetting; $results += \"SUCCESS: Configured diagnostics for Host Pool $($hostPool.Name)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Host Pool $($hostPool.Name): $($_.Exception.Message)\" } } } catch { $results += \"ERROR: Failed to process Host Pools: $($_.Exception.Message)\" } }; if ($EnableStorage) { Write-Output 'Configuring Storage Account diagnostics...'; try { $storageAccounts = Get-AzStorageAccount; foreach ($storageAccount in $storageAccounts) { if ($storageAccount.StorageAccountName -match 'avd|profile|fslogix|vdi|wvd' -or $storageAccount.Tags.ContainsKey('AVD') -or $storageAccount.Tags.ContainsKey('FSLogix')) { Write-Output \"Processing Storage Account: $($storageAccount.StorageAccountName)\"; $diagnosticSettingName = \"avd-storage-analytics-$($storageAccount.StorageAccountName)\"; $logCategories = @(@{ Category = 'StorageRead'; Enabled = $true }, @{ Category = 'StorageWrite'; Enabled = $true }, @{ Category = 'StorageDelete'; Enabled = $true }); $metricCategories = @(@{ Category = 'Transaction'; Enabled = $true }, @{ Category = 'Capacity'; Enabled = $true }); try { New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $storageAccount.Id -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured diagnostics for Storage Account $($storageAccount.StorageAccountName)\"; $blobServiceResourceId = \"$($storageAccount.Id)/blobServices/default\"; New-AzDiagnosticSetting -Name \"$diagnosticSettingName-blob\" -ResourceId $blobServiceResourceId -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured blob diagnostics for Storage Account $($storageAccount.StorageAccountName)\"; $fileServiceResourceId = \"$($storageAccount.Id)/fileServices/default\"; New-AzDiagnosticSetting -Name \"$diagnosticSettingName-file\" -ResourceId $fileServiceResourceId -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured file diagnostics for Storage Account $($storageAccount.StorageAccountName)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Storage Account $($storageAccount.StorageAccountName): $($_.Exception.Message)\" } } } } catch { $results += \"ERROR: Failed to process Storage Accounts: $($_.Exception.Message)\" } }; if ($EnableANF) { Write-Output 'Configuring Azure NetApp Files diagnostics...'; try { $netAppAccounts = Get-AzNetAppFilesAccount; foreach ($netAppAccount in $netAppAccounts) { Write-Output \"Processing NetApp Account: $($netAppAccount.Name)\"; $capacityPools = Get-AzNetAppFilesPool -ResourceGroupName $netAppAccount.ResourceGroupName -AccountName $netAppAccount.Name; foreach ($pool in $capacityPools) { $volumes = Get-AzNetAppFilesVolume -ResourceGroupName $netAppAccount.ResourceGroupName -AccountName $netAppAccount.Name -PoolName $pool.Name; foreach ($volume in $volumes) { Write-Output \"Processing Volume: $($volume.Name)\"; $diagnosticSettingName = \"avd-storage-analytics-$($volume.Name)\"; $metricCategories = @(@{ Category = 'AllMetrics'; Enabled = $true }); try { New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $volume.Id -WorkspaceId $workspaceResourceId -Metric $metricCategories; $results += \"SUCCESS: Configured diagnostics for ANF Volume $($volume.Name)\" } catch { $results += \"WARNING: Failed to configure diagnostics for ANF Volume $($volume.Name): $($_.Exception.Message)\" } } } } } catch { $results += \"WARNING: Failed to process Azure NetApp Files (may not be present): $($_.Exception.Message)\" } }; Write-Output ''; Write-Output '=== CONFIGURATION RESULTS ==='; $results | ForEach-Object { Write-Output $_ }; $DeploymentScriptOutputs = @{ 'workspaceResourceId' = $workspaceResourceId; 'dataCollectionRuleId' = $dcrResourceId; 'configurationResults' = $results -join '; ' }"
+        "arguments": "[concat('-SubscriptionId ', variables('subscriptionId'), ' -WorkspaceName ', parameters('logAnalyticsWorkspaceName'), ' -ResourceGroupName ', resourceGroup().name, ' -EnableHostPool ', parameters('enableHostPoolDiagnostics'), ' -EnableStorage ', parameters('enableStorageDiagnostics'), ' -EnableANF ', parameters('enableANFDiagnostics'), ' -DataCollectionRuleName ', variables('dataCollectionRuleName'))]",        "scriptContent": "param([string]$SubscriptionId,[string]$WorkspaceName,[string]$ResourceGroupName,[bool]$EnableHostPool,[bool]$EnableStorage,[bool]$EnableANF,[string]$DataCollectionRuleName); $ErrorActionPreference = 'Stop'; Import-Module Az.Accounts, Az.Monitor, Az.DesktopVirtualization, Az.Storage, Az.NetAppFiles -Force; Write-Output 'Starting AVD diagnostic configuration...'; Write-Output \"Subscription: $SubscriptionId\"; Write-Output \"Workspace: $WorkspaceName\"; Set-AzContext -SubscriptionId $SubscriptionId; $workspace = Get-AzOperationalInsightsWorkspace -ResourceGroupName $ResourceGroupName -Name $WorkspaceName; $workspaceResourceId = $workspace.ResourceId; Write-Output \"Workspace Resource ID: $workspaceResourceId\"; $dcrResourceId = \"/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.Insights/dataCollectionRules/$DataCollectionRuleName\"; $results = @(); if ($EnableHostPool) { Write-Output 'Configuring AVD Host Pool diagnostics...'; try { $hostPools = Get-AzWvdHostPool; foreach ($hostPool in $hostPools) { Write-Output \"Processing Host Pool: $($hostPool.Name)\"; $diagnosticSettingName = \"avd-storage-analytics-$($hostPool.Name)\"; $logCategories = @(@{ Category = 'Checkpoint'; Enabled = $true }, @{ Category = 'Error'; Enabled = $true }, @{ Category = 'Management'; Enabled = $true }, @{ Category = 'Connection'; Enabled = $true }, @{ Category = 'HostRegistration'; Enabled = $true }, @{ Category = 'AgentHealthStatus'; Enabled = $true }, @{ Category = 'NetworkData'; Enabled = $true }, @{ Category = 'SessionHostManagement'; Enabled = $true }); $diagnosticSetting = @{ Name = $diagnosticSettingName; ResourceId = $hostPool.Id; WorkspaceId = $workspaceResourceId; Log = $logCategories; Enabled = $true }; try { New-AzDiagnosticSetting @diagnosticSetting; $results += \"SUCCESS: Configured diagnostics for Host Pool $($hostPool.Name)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Host Pool $($hostPool.Name): $($_.Exception.Message)\" } } } catch { $results += \"ERROR: Failed to process Host Pools: $($_.Exception.Message)\" } }; if ($EnableStorage) { Write-Output 'Configuring Storage Account diagnostics...'; try { $storageAccounts = Get-AzStorageAccount; foreach ($storageAccount in $storageAccounts) { if ($storageAccount.StorageAccountName -match 'avd|profile|fslogix|vdi|wvd' -or $storageAccount.Tags.ContainsKey('AVD') -or $storageAccount.Tags.ContainsKey('FSLogix')) { Write-Output \"Processing Storage Account: $($storageAccount.StorageAccountName)\"; $diagnosticSettingName = \"avd-storage-analytics-$($storageAccount.StorageAccountName)\"; $logCategories = @(@{ Category = 'StorageRead'; Enabled = $true }, @{ Category = 'StorageWrite'; Enabled = $true }, @{ Category = 'StorageDelete'; Enabled = $true }); $metricCategories = @(@{ Category = 'Transaction'; Enabled = $true }, @{ Category = 'Capacity'; Enabled = $true }); try { New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $storageAccount.Id -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured diagnostics for Storage Account $($storageAccount.StorageAccountName)\"; $blobServiceResourceId = \"$($storageAccount.Id)/blobServices/default\"; New-AzDiagnosticSetting -Name \"$diagnosticSettingName-blob\" -ResourceId $blobServiceResourceId -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured blob diagnostics for Storage Account $($storageAccount.StorageAccountName)\"; $fileServiceResourceId = \"$($storageAccount.Id)/fileServices/default\"; New-AzDiagnosticSetting -Name \"$diagnosticSettingName-file\" -ResourceId $fileServiceResourceId -WorkspaceId $workspaceResourceId -Log $logCategories -Metric $metricCategories; $results += \"SUCCESS: Configured file diagnostics for Storage Account $($storageAccount.StorageAccountName)\" } catch { $results += \"WARNING: Failed to configure diagnostics for Storage Account $($storageAccount.StorageAccountName): $($_.Exception.Message)\" } } } } catch { $results += \"ERROR: Failed to process Storage Accounts: $($_.Exception.Message)\" } }; if ($EnableANF) { Write-Output 'Configuring Azure NetApp Files diagnostics...'; try { $netAppAccounts = Get-AzNetAppFilesAccount; foreach ($netAppAccount in $netAppAccounts) { Write-Output \"Processing NetApp Account: $($netAppAccount.Name)\"; $capacityPools = Get-AzNetAppFilesPool -ResourceGroupName $netAppAccount.ResourceGroupName -AccountName $netAppAccount.Name; foreach ($pool in $capacityPools) { $volumes = Get-AzNetAppFilesVolume -ResourceGroupName $netAppAccount.ResourceGroupName -AccountName $netAppAccount.Name -PoolName $pool.Name; foreach ($volume in $volumes) { Write-Output \"Processing Volume: $($volume.Name)\"; $diagnosticSettingName = \"avd-storage-analytics-$($volume.Name)\"; $metricCategories = @(@{ Category = 'AllMetrics'; Enabled = $true }); try { New-AzDiagnosticSetting -Name $diagnosticSettingName -ResourceId $volume.Id -WorkspaceId $workspaceResourceId -Metric $metricCategories; $results += \"SUCCESS: Configured diagnostics for ANF Volume $($volume.Name)\" } catch { $results += \"WARNING: Failed to configure diagnostics for ANF Volume $($volume.Name): $($_.Exception.Message)\" } } } } } catch { $results += \"WARNING: Failed to process Azure NetApp Files (may not be present): $($_.Exception.Message)\" } }; Write-Output ''; Write-Output '=== CONFIGURATION RESULTS ==='; $results | ForEach-Object { Write-Output $_ }; $DeploymentScriptOutputs = @{ 'workspaceResourceId' = $workspaceResourceId; 'dataCollectionRuleId' = $dcrResourceId; 'configurationResults' = $results -join '; ' }"
       }
     }
   ],

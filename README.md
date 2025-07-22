@@ -16,7 +16,7 @@ git clone https://github.com/tvanroo/AVDStorageAudit.git
 cd AVDStorageAudit/AVD\ Workbook
 
 # Deploy the analytics infrastructure
-.\Deploy-AVD-DataCollection.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics" -Location "East US"
+.\Deploy-AVD-DataCollection.ps1 -SubscriptionId "your-subscription-id" -ResourceGroupName "rg-avd-analytics"
 ```
 
 ## 📁 Repository Structure

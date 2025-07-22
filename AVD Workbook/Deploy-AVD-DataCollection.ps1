@@ -10,9 +10,6 @@ param(
     [string]$ResourceGroupName,
     
     [Parameter(Mandatory = $false)]
-    [string]$Location = "East US",
-    
-    [Parameter(Mandatory = $false)]
     [string]$WorkspaceName = "law-avd-storage-analytics",
     
     [Parameter(Mandatory = $false)]
@@ -63,15 +60,19 @@ catch {
     exit 1
 }
 
-# Create resource group if it doesn't exist
+# Create resource group if it doesn't exist (location must be provided if creating new RG)
 try {
     $rg = Get-AzResourceGroup -Name $ResourceGroupName -ErrorAction SilentlyContinue
     if (-not $rg) {
-        Write-Host "📁 Creating resource group: $ResourceGroupName" -ForegroundColor Yellow
-        New-AzResourceGroup -Name $ResourceGroupName -Location $Location
+        # If no resource group exists, we need a location - use a default or prompt user
+        $defaultLocation = "East US"
+        Write-Host "📁 Creating resource group: $ResourceGroupName in $defaultLocation" -ForegroundColor Yellow
+        Write-Host "💡 Note: You can specify a different location by creating the resource group first in the Azure portal" -ForegroundColor Cyan
+        New-AzResourceGroup -Name $ResourceGroupName -Location $defaultLocation
         Write-Host "✅ Resource group created successfully" -ForegroundColor Green
+        $rg = Get-AzResourceGroup -Name $ResourceGroupName
     } else {
-        Write-Host "✅ Resource group already exists: $ResourceGroupName" -ForegroundColor Green
+        Write-Host "✅ Resource group already exists: $ResourceGroupName in $($rg.Location)" -ForegroundColor Green
     }
 }
 catch {
@@ -84,16 +85,13 @@ try {
     Write-Host "📋 Deploying data collection infrastructure..." -ForegroundColor Yellow
     
     $deploymentName = "avd-storage-analytics-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    
-    $templateParameters = @{
+      $templateParameters = @{
         logAnalyticsWorkspaceName = $WorkspaceName
-        location = $Location
         dataRetentionDays = $DataRetentionDays
         enableHostPoolDiagnostics = $EnableHostPoolDiagnostics
         enableSessionHostDiagnostics = $EnableSessionHostDiagnostics
         enableStorageDiagnostics = $EnableStorageDiagnostics
         enableANFDiagnostics = $EnableANFDiagnostics
-        subscriptionId = $SubscriptionId
     }
     
     # Check if template file exists locally, otherwise use URI
