@@ -1,34 +1,52 @@
-# Azure Workbook Naming Fix
+# Azure Workbook Naming Fix - UPDATED
 
 ## Issue
-Azure Workbook resource names have strict naming requirements and cannot contain hyphens. The original template was generating workbook names like:
+Azure Workbook resource names must be in GUID format. The template was generating invalid names like:
 ```
-AVD-Storage-Analytics-{uniqueString}
+avdstorageanalyticsjtarct2yjgfjq
 ```
 
 This caused deployment failures with the error:
 ```
-BadRequest: Invalid Workbook resource name: 'avd-storage-analytics-jtarct2yjgfjq'
+BadRequest: Invalid Workbook resource name: 'avdstorageanalyticsjtarct2yjgfjq'
 ```
 
-## Solution
-Updated the workbook name generation in `deploy-avd-data-collection.json` to use only alphanumeric characters:
+## Root Cause
+Azure Workbook names have strict requirements:
+- Must be a valid GUID format (e.g., `12345678-1234-1234-1234-123456789abc`)
+- Cannot be arbitrary strings, even if alphanumeric
+- The `uniqueString()` function generates a hash, not a GUID
 
-**Before:**
+## Solution
+Updated the workbook name generation in `deploy-avd-data-collection.json`:
+
+**Before (First attempt):**
 ```json
 "workbookName": "[concat('AVD-Storage-Analytics-', uniqueString(resourceGroup().id))]"
 ```
 
-**After:**
+**Before (Second attempt):**
 ```json
 "workbookName": "[concat('AVDStorageAnalytics', uniqueString(resourceGroup().id))]"
 ```
 
+**After (Final fix):**
+```json
+"workbookName": "[guid(resourceGroup().id, 'avd-storage-workbook')]"
+```
+
 ## Azure Workbook Naming Rules
-- Must be alphanumeric characters only
-- No hyphens, underscores, or special characters allowed
-- Must be unique within the resource group
-- Case-sensitive
+- ✅ Must be a valid GUID format
+- ✅ Must be unique within the resource group
+- ✅ Use `guid()` ARM function, not `uniqueString()`
+- ❌ Cannot be arbitrary text strings
+- ❌ Cannot contain hyphens in non-GUID format
+- ❌ Cannot be alphanumeric concatenations
+
+## ARM Template Function Details
+- `guid(seed1, seed2)` generates a deterministic GUID based on the seeds
+- This ensures the same resource group will always get the same workbook GUID
+- The GUID will be unique across different resource groups
 
 ## Verification
 The ARM template JSON has been validated and is syntactically correct after this change.
@@ -36,4 +54,5 @@ The ARM template JSON has been validated and is syntactically correct after this
 ## Impact
 - ✅ Workbook will now deploy successfully via "Deploy to Azure" button
 - ✅ No functionality changes - same comprehensive AVD analytics and ANF planning features
-- ✅ Workbook will appear as "AVDStorageAnalytics{uniqueString}" in the Azure portal
+- ✅ Workbook will appear with a proper GUID name in the Azure portal
+- ✅ Deterministic naming - same resource group = same workbook GUID

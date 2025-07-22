@@ -53,7 +53,7 @@
     "location": "[resourceGroup().location]",    "dataCollectionRuleName": "[concat('dcr-avd-storage-', uniqueString(resourceGroup().id))]",
     "dataCollectionEndpointName": "[concat('dce-avd-storage-', uniqueString(resourceGroup().id))]",
     "managedIdentityName": "[concat('id-avd-storage-', uniqueString(resourceGroup().id))]",
-    "workbookName": "[concat('AVDStorageAnalytics', uniqueString(resourceGroup().id))]"
+    "workbookName": "[guid(resourceGroup().id, 'avd-storage-workbook')]"
   },
   "resources": [
     {

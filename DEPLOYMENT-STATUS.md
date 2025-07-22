@@ -237,12 +237,12 @@ The solution now includes multiple testing layers:
 
 ## 🎯 LATEST UPDATE: July 22, 2025
 
-### ✅ Azure Workbook Naming Fix RESOLVED
+### ✅ Azure Workbook GUID Naming Fix RESOLVED
 **Issue**: Invalid Workbook resource name causing deployment failures  
-**Error**: `BadRequest: Invalid Workbook resource name: 'avd-storage-analytics-jtarct2yjgfjq'`  
-**Root Cause**: Azure Workbook names cannot contain hyphens  
-**Solution**: Updated workbook name generation from `AVD-Storage-Analytics-{unique}` to `AVDStorageAnalytics{unique}`  
-**Result**: Workbook now deploys successfully via "Deploy to Azure" button
+**Error**: `BadRequest: Invalid Workbook resource name: 'avdstorageanalyticsjtarct2yjgfjq'`  
+**Root Cause**: Azure Workbook names must be in GUID format, not arbitrary strings  
+**Solution**: Updated workbook name from `uniqueString()` to `guid(resourceGroup().id, 'avd-storage-workbook')`  
+**Result**: Workbook now generates proper GUID and deploys successfully via "Deploy to Azure" button
 
 ## 🎯 CONFIDENCE LEVEL: HIGH
 
