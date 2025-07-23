@@ -1,0 +1,23 @@
+// Corrected query for Azure Workbook Workspace parameter dropdown
+// This query should be used in the Workspace parameter in the Azure Workbook
+
+// Option 1: Using Azure Resource Graph (recommended for workbooks)
+Resources
+| where type == "microsoft.operationalinsights/workspaces"
+| project id, name, subscriptionId, resourceGroup
+| order by name asc
+
+// Option 2: Alternative using resource() function in workbooks
+// Use this if the above doesn't work in workbook context
+resource("microsoft.operationalinsights/workspaces")
+| project id, name, subscriptionId, resourceGroup
+| order by name asc
+
+// Option 3: For cross-component queries in workbooks
+// This works when the workbook needs to query across different resources
+AzureActivity
+| where ResourceProvider == "Microsoft.OperationalInsights"
+| where ResourceType == "workspaces"
+| distinct ResourceId, ResourceGroup, SubscriptionId, Resource
+| project id = ResourceId, name = Resource, subscriptionId = SubscriptionId, resourceGroup = ResourceGroup
+| order by name asc
