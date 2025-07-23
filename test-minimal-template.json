@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",  "parameters": {
+    "workbookId": {
+      "type": "string",
+      "defaultValue": "[guid(resourceGroup().id, 'test-workbook')]",
+      "metadata": {
+        "description": "GUID for the workbook"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/workbooks",
+      "apiVersion": "2022-04-01",
+      "name": "[parameters('workbookId')]",
+      "location": "[resourceGroup().location]",
+      "kind": "shared",
+      "properties": {
+        "displayName": "AVD Storage Test Workbook",
+        "description": "Simple test workbook for validation",
+        "category": "Azure Virtual Desktop",
+        "serializedData": "{\"version\":\"Notebook/1.0\",\"items\":[{\"type\":1,\"content\":{\"json\":\"# Test Workbook\\r\\nThis is a simple test workbook to validate deployment.\"},\"name\":\"title\"}],\"styleSettings\":{},\"$schema\":\"https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json\"}"
+      }
+    }
+  ],
+  "outputs": {    "workbookId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/workbooks', parameters('workbookId'))]"
+    }
+  }
+}

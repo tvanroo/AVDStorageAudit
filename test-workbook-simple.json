@@ -1,0 +1,41 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workbookName": {
+            "type": "string",
+            "defaultValue": "[guid(resourceGroup().id, 'avd-storage-workbook')]",
+            "metadata": {
+                "description": "Unique name for the workbook"
+            }
+        },
+        "logAnalyticsWorkspaceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID of the Log Analytics workspace"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Insights/workbooks",
+            "apiVersion": "2022-04-01",
+            "name": "[parameters('workbookName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "shared",
+            "properties": {
+                "displayName": "AVD Storage Analytics Test",
+                "description": "Test workbook for AVD storage analytics",
+                "category": "Azure Virtual Desktop",
+                "sourceId": "[parameters('logAnalyticsWorkspaceId')]",
+                "serializedData": "{\"version\":\"Notebook/1.0\",\"items\":[{\"type\":1,\"content\":{\"json\":\"# AVD Storage Analytics Test\\r\\n## This is a test workbook\"},\"name\":\"TestTitle\"}],\"styleSettings\":{},\"$schema\":\"https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json\"}"
+            }
+        }
+    ],
+    "outputs": {
+        "workbookId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Insights/workbooks', parameters('workbookName'))]"
+        }
+    }
+}
